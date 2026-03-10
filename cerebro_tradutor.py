@@ -7,23 +7,28 @@ from google import genai
 from google.genai import types
 from gtts import gTTS
 
-# 1. Carregamento da Chave (Prioridade para st.secrets)
+# Carrega localmente (VS Code), mas no Streamlit usa st.secrets
 load_dotenv()
-api_key = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+# Lógica robusta de recuperação da chave
+if "GOOGLE_API_KEY" in st.secrets:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+else:
+    api_key = os.getenv("GOOGLE_API_KEY")
 
 if not api_key:
-    st.error("Chave de API não configurada nas Secrets do Streamlit!")
+    st.error("ERRO: GOOGLE_API_KEY não encontrada nas Secrets ou no .env")
     st.stop()
 
-# 2. Inicialização dos Clientes
+# Inicializa o cliente APENAS se a chave existir
 client = genai.Client(api_key=api_key)
 
-# 3. Cache do Modelo Whisper (Evita carregar toda vez que clicar no botão)
+# Inicializa o Whisper (corrige o erro de 'not defined')
 @st.cache_resource
-def load_whisper():
+def get_model():
     return whisper.load_model("base")
 
-model_whisper = load_whisper()
+model_whisper = get_model()
 
 
 def pipeline_processamento(audio_base64):
