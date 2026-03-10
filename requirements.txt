@@ -1,0 +1,5 @@
+streamlit
+google-genai
+openai-whisper
+gTTS
+python-dotenv
