@@ -61,4 +61,5 @@ Latência Perceptiva: Otimização do fluxo de áudio para reduzir o Time to Fir
 Marco Pinheiro - [LinkedIn](https://www.linkedin.com/in/marco-pinheiro-34256b373/)
 
 Link para o App Streamlit Live
+   https://tradutormultimoldal.streamlit.app/
    git clone [https://https://github.com/marco-dev-pinheiro/Tradutor_Multimoldal_com_api_do_Google.git](https://https://github.com/marco-dev-pinheiro/Tradutor_Multimoldal_com_api_do_Google.git)
