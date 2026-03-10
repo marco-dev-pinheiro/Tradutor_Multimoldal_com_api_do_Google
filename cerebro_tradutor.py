@@ -12,24 +12,23 @@ def carregar_modelos():
     """Carrega o Whisper uma única vez e armazena em cache."""
     return whisper.load_model("base")
 
+# Inicializa o modelo Whisper globalmente
+model_whisper = carregar_modelos()
+
 def obter_cliente():
     """Cria o cliente Gemini apenas quando solicitado, buscando a chave de forma segura."""
-    # Tenta buscar nas Secrets do Streamlit primeiro
-    api_key = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    api_key = st.secrets.get("GOOGLE_API_KEY", None) or os.getenv("GOOGLE_API_KEY")
     
     if not api_key:
-        st.error("🚨 Chave GOOGLE_API_KEY não encontrada!")
+        st.error("🚨 Chave GOOGLE_API_KEY não encontrada! Configure em st.secrets ou variável de ambiente.")
         st.stop()
         
     return genai.Client(api_key=api_key)
 
-# Inicializa o modelo Whisper globalmente usando o cache
-model_whisper = carregar_modelos()
-
-
 def pipeline_processamento(audio_base64):
     try:
         client = obter_cliente()
+
         # 1. Decodificação do Áudio
         dados_audio = base64.b64decode(audio_base64.split(",")[1])
         arquivo_entrada = "entrada.wav"
@@ -37,25 +36,26 @@ def pipeline_processamento(audio_base64):
             f.write(dados_audio)
 
         # 2. Transcrição (Whisper)
-        resultado_transcricao = model_whisper.transcribe(arquivo_entrada, fp16=False, task="transcribe")
-        texto_original = resultado_transcricao["text"].strip()
+        resultado_transcricao = model_whisper.transcribe(
+            arquivo_entrada, fp16=False, task="transcribe"
+        )
+        texto_original = resultado_transcricao.get("text", "").strip()
 
-       # 3. Tradução com Lógica de Inversão (Gemini)
+        # 3. Tradução com Gemini
         instrucao_sistema = """Você é um tradutor automático rigoroso.
         Sua saída deve seguir EXATAMENTE o formato: codigo|texto
 
-        Regras de detecção:
+        Regras:
         - Se o usuário falar em Português -> Retorne: en|tradução para inglês
         - Se o usuário falar em Inglês -> Retorne: pt|tradução para português
 
-        Exemplos de saída esperada:
+        Exemplos:
         en|Good morning, how can I help you?
-        pt|Bom dia, como posso ajudar?
+        pt|Bom dia, como posso ajudar?"""
 
-        NUNCA adicione explicações, aspas ou textos extras. Apenas 'codigo|texto'."""
         try:
             resposta = client.models.generate_content(
-                model='gemini-2.0-flash', # Versão atual estável
+                model='gemini-2.0-flash',
                 contents=f"Traduza: {texto_original}",
                 config=types.GenerateContentConfig(
                     system_instruction=instrucao_sistema,
@@ -66,7 +66,7 @@ def pipeline_processamento(audio_base64):
         except Exception as erro_api:
             if "429" in str(erro_api):
                 return texto_original, "Erro: Limite atingido. Aguarde 1 min.", None
-            raise erro_api
+            return texto_original, f"Erro na API Gemini: {str(erro_api)}", None
 
         # 4. Parsing e Síntese de Voz (gTTS)
         if "|" in saida_bruta:
@@ -83,4 +83,6 @@ def pipeline_processamento(audio_base64):
         return texto_original, texto_traduzido, arquivo_saida
 
     except Exception as erro:
-        return f"Erro: {str(erro)}", "Falha no processamento", None
+        return f"Erro inesperado: {str(erro)}", "Falha no processamento", None
+
+
