@@ -1,29 +1,31 @@
 import os
 import base64
 import whisper
+import streamlit as st
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from gtts import gTTS
-#inicializaçao esse bloco chama  as variaveis de ambiente e configura o cliente da API do Gemini
-import os
-import streamlit as st
-from dotenv import load_dotenv
-from google import genai
 
-# 1. Tenta carregar do arquivo .env (para rodar no VS Code)
+# 1. Carregamento da Chave (Prioridade para st.secrets)
 load_dotenv()
-
-# 2. Busca a chave: Primeiro tenta no Streamlit Cloud, depois nas variáveis de ambiente
 api_key = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
-# 3. Validação Crítica
 if not api_key:
-    st.error("🚨 Erro: Chave de API não encontrada! Verifique as 'Secrets' no Streamlit ou o arquivo '.env'.")
-    st.stop() # Interrompe a execução antes do erro de sistema
+    st.error("Chave de API não configurada nas Secrets do Streamlit!")
+    st.stop()
 
-# 4. Inicializa o cliente passando a chave explicitamente
+# 2. Inicialização dos Clientes
 client = genai.Client(api_key=api_key)
+
+# 3. Cache do Modelo Whisper (Evita carregar toda vez que clicar no botão)
+@st.cache_resource
+def load_whisper():
+    return whisper.load_model("base")
+
+model_whisper = load_whisper()
+
+
 def pipeline_processamento(audio_base64):
     try:
         # 1. Decodificação do Áudio
