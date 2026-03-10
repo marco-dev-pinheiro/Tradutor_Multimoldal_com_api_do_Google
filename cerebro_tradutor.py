@@ -2,37 +2,34 @@ import os
 import base64
 import whisper
 import streamlit as st
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from gtts import gTTS
 
-# Carrega localmente (VS Code), mas no Streamlit usa st.secrets
-load_dotenv()
-
-# Lógica robusta de recuperação da chave
-if "GOOGLE_API_KEY" in st.secrets:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-else:
-    api_key = os.getenv("GOOGLE_API_KEY")
-
-if not api_key:
-    st.error("ERRO: GOOGLE_API_KEY não encontrada nas Secrets ou no .env")
-    st.stop()
-
-# Inicializa o cliente APENAS se a chave existir
-client = genai.Client(api_key=api_key)
-
-# Inicializa o Whisper (corrige o erro de 'not defined')
+# --- INICIALIZAÇÃO SEGURA ---
 @st.cache_resource
-def get_model():
+def carregar_modelos():
+    """Carrega o Whisper uma única vez e armazena em cache."""
     return whisper.load_model("base")
 
-model_whisper = get_model()
+def obter_cliente():
+    """Cria o cliente Gemini apenas quando solicitado, buscando a chave de forma segura."""
+    # Tenta buscar nas Secrets do Streamlit primeiro
+    api_key = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    
+    if not api_key:
+        st.error("🚨 Chave GOOGLE_API_KEY não encontrada!")
+        st.stop()
+        
+    return genai.Client(api_key=api_key)
+
+# Inicializa o modelo Whisper globalmente usando o cache
+model_whisper = carregar_modelos()
 
 
 def pipeline_processamento(audio_base64):
     try:
+        client = obter_cliente()
         # 1. Decodificação do Áudio
         dados_audio = base64.b64decode(audio_base64.split(",")[1])
         arquivo_entrada = "entrada.wav"
